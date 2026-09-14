@@ -1,0 +1,8 @@
+# FAULT (easy): image tag that does not exist -> ImagePullBackOff.
+# Symptom: ImagePullBackOff / ErrImagePull, event "manifest unknown"
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          image: docker.io/library/python:3.11-alpine-DOES-NOT-EXIST

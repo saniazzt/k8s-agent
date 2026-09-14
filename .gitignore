@@ -1,0 +1,6 @@
+# generated, never commit
+.rca/
+*.log
+__pycache__/
+.env
+.env.*

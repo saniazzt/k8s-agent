@@ -1,0 +1,97 @@
+# RBAC for the RCA agent: read-only, namespace-scoped.
+#
+# Verify (must print "no"):
+#   kubectl auth can-i delete pods \
+#     --as=system:serviceaccount:rca-test:rca-agent -n rca-test
+#
+# Note on secrets: the Role deliberately does NOT grant access to `secrets`,
+# so even if a hook were bypassed, the API server refuses the read.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rca-agent
+  namespace: rca-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rca-agent-readonly
+  namespace: rca-test
+rules:
+  # never granted: secrets
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - pods/status
+      - events
+      - services
+      - endpoints
+      - configmaps
+      - replicationcontrollers
+      - persistentvolumeclaims
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rca-agent-readonly
+  namespace: rca-test
+subjects:
+  - kind: ServiceAccount
+    name: rca-agent
+    namespace: rca-test
+roleRef:
+  kind: Role
+  name: rca-agent-readonly
+  apiGroup: rbac.authorization.k8s.io
+---
+# Cluster-scoped read-only facts needed to explain scheduling failures and to
+# read container resource usage. Still read-only, still no secrets.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rca-agent-cluster-readonly
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rca-agent-cluster-readonly
+subjects:
+  - kind: ServiceAccount
+    name: rca-agent
+    namespace: rca-test
+roleRef:
+  kind: ClusterRole
+  name: rca-agent-cluster-readonly
+  apiGroup: rbac.authorization.k8s.io
+---
+# Long-lived token for the agent's kubeconfig (scripts/setup.sh builds it).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rca-agent-token
+  namespace: rca-test
+  annotations:
+    kubernetes.io/service-account.name: rca-agent
+type: kubernetes.io/service-account-token

@@ -1,0 +1,13 @@
+# Companion patch for fault 05: mount the (unbound) PVC into demo-app.
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/demo
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: demo-app-data

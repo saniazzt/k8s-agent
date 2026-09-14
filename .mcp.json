@@ -1,0 +1,37 @@
+{
+  "mcpServers": {
+    "kubernetes": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-kubernetes"],
+      "env": {
+        "KUBECONFIG": "${CLAUDE_PLUGIN_ROOT}/.rca/kubeconfig-rca-agent"
+      }
+    },
+    "victoriametrics": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp_servers/victoriametrics.py"],
+      "env": {
+        "VM_URL": "http://95.38.160.59",
+        "VM_TENANT_PATH": "",
+        "VM_HOST_HEADER": "ezzati.osdl.ir"
+      }
+    },
+    "alertmanager": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp_servers/alertmanager.py"],
+      "env": {
+        "AM_URL": "http://127.0.0.1:9093",
+        "AM_PATH": "",
+        "AM_HOST_HEADER": ""
+      }
+    },
+    "grafana": {
+      "command": "mcp-grafana",
+      "args": [],
+      "env": {
+        "GRAFANA_URL": "http://127.0.0.1:3000",
+        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+      }
+    }
+  }
+}

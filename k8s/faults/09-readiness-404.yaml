@@ -1,0 +1,12 @@
+# FAULT (hard): readiness probe points at a path the app answers with 404.
+# Symptom: pod Running but 0/1 Ready; endpoints empty; event
+#          "Readiness probe failed: HTTP probe failed with statuscode: 404"
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          readinessProbe:
+            httpGet:
+              path: /nope
+              port: 8080

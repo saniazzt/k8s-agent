@@ -1,0 +1,10 @@
+# FAULT (easy): requests larger than any node -> Pending / FailedScheduling.
+# Symptom: Pending, event "0/2 nodes are available: Insufficient memory/cpu"
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests: { cpu: "64", memory: 200Gi }
+            limits:   { cpu: "64", memory: 200Gi }

@@ -1,0 +1,9 @@
+# FAULT (hard): pod-level DNS is pointed at a nameserver that does not exist.
+# Symptom: pods Running/Ready, probes pass, but the app logs name-resolution
+#          failures for demo-db ("[Errno -3] Try again"/"timed out").
+#          Requires reading spec.template.spec.dnsConfig in the deployment YAML.
+spec:
+  template:
+    spec:
+      dnsConfig:
+        nameservers: ["10.0.0.99"]

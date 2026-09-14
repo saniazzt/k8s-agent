@@ -1,0 +1,8 @@
+# FAULT (hard): a ConfigMap key used by a volume item was renamed.
+# Symptom: pods stuck ContainerCreating; event "couldn't find key LOG_LEVEL in
+#          ConfigMap rca-test/demo-app-config". Requires comparing the
+#          deployment's volume items with the ConfigMap's actual keys.
+# NOTE: patches the ConfigMap.
+data:
+  LOG_LEVEL_NEW: "info"
+  LOG_LEVEL: null

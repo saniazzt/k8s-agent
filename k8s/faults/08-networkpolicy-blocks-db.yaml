@@ -1,0 +1,25 @@
+# FAULT (hard): egress NetworkPolicy that only allows DNS, silently cutting the
+# app off from demo-db. Pods stay Running/Ready and probes pass.
+# Symptom: log "ERROR db unreachable: timed out" with no k8s event at all.
+#          Requires correlating logs with `kubectl get networkpolicy -o yaml`.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-app-netpol
+  namespace: rca-test
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-app
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

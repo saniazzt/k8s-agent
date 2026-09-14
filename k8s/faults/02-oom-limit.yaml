@@ -1,0 +1,10 @@
+# FAULT (easy): memory limit lower than the app needs -> OOMKilled.
+# Symptom: CrashLoopBackOff, describe shows Last State Terminated (OOMKilled, 137)
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          resources:
+            requests: { cpu: 10m, memory: 8Mi }
+            limits:   { cpu: 100m, memory: 8Mi }

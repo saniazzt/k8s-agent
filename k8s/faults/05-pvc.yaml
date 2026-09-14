@@ -1,0 +1,13 @@
+# FAULT (easy): PVC asking for a StorageClass that is not installed.
+# Symptom: pod Pending, event "storageclass.storage.k8s.io "fast-ssd" not found"
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: demo-app-data
+  namespace: rca-test
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: "fast-ssd-DOES-NOT-EXIST"
+  resources:
+    requests:
+      storage: 1Gi

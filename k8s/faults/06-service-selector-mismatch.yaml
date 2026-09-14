@@ -1,0 +1,7 @@
+# FAULT (hard): Service selector no longer matches the pod labels.
+# Symptom: pods Running/Ready but `kubectl get endpoints demo-app` is <none>;
+#          callers time out. Requires comparing svc.spec.selector with pod labels.
+# NOTE: this patches the SERVICE, not the deployment.
+spec:
+  selector:
+    app: demo-app-WRONG
