@@ -20,6 +20,23 @@ kubectl auth can-i --list --as=system:serviceaccount:<ns>:rca-agent -n <ns>   # 
 Note which objects are `NotReady`, `CrashLoopBackOff`, `Pending`, or missing.
 Write down the candidate names before continuing.
 
+## Step 0b — Is it broken *right now*?
+
+Before explaining anything, establish that the fault is **current**:
+
+```bash
+kubectl get pods -n <ns> -o wide          # all Ready? any restarts happening now?
+kubectl get events -n <ns> --sort-by=.lastTimestamp | tail -25
+date -u +%Y-%m-%dT%H:%M:%SZ               # compare against event timestamps
+```
+
+- Events are kept for ~1h and the cluster has been churned by earlier experiments.
+  **Only events in the last few minutes, matching a currently-unhealthy pod, are evidence.**
+- If every pod is `Ready` with `0` recent restarts and there are no *current*
+  failures, the honest answer is **"no active fault — the errors in the event log
+  are historical"**. Do **not** invent a cause from stale events. (This exact
+  mistake produced a `high`-confidence wrong answer on a healthy namespace.)
+
 ## Step 1 — Pods (state first, no interpretation)
 
 ```bash
@@ -89,6 +106,33 @@ An endpoint list that is `<none>` means the **Service selector does not match
 any pod labels** — compare `spec.selector` with the pods' labels directly,
 character by character. Do the same for the dependency's Service
 (e.g. `demo-db`) when the app reports connection errors.
+
+## Step 6b — When pods are Ready but the app still fails
+
+This is the hardest class and the one that produced a confident wrong answer in
+testing. Pods `1/1 Running`, probes passing, no events — and the app still
+cannot reach its dependency. Before any hypothesis:
+
+```bash
+kubectl get deploy -n <ns> <deploy> -o yaml | grep -A6 -E "dnsPolicy|dnsConfig|securityContext|affinity"
+kubectl get networkpolicy -n <ns> -o yaml
+kubectl get endpoints -n <ns> <dependency-svc> -o wide
+kubectl get svc -n <ns> <app-svc> -o yaml   # compare selector with pod labels
+kubectl logs -n <ns> deploy/<deploy> --tail=50   # look for name-resolution errors
+```
+
+Rules learned the hard way:
+- Read the **whole** deployment YAML — do not query only selected fields with
+  `jsonpath`; you will miss `dnsConfig`, `dnsPolicy`, probes, `items:` and
+  `securityContext`.
+- If the logs show `timed out` / `[Errno -3] Try again` / `Name or service not
+  known`, treat **DNS and NetworkPolicy** as primary suspects, not the app.
+- A benign-looking oddity (e.g. an `items:` restriction on a volume that is not
+  what the app reads) is **not** the root cause. If it does not explain the
+  observed symptom, discard it — do not build a story around it.
+- Correlate: does the failing dependency resolve? (`nslookup`/`getent` from a
+  debug pod is forbidden to create; instead compare `dnsConfig`/`dnsPolicy` and
+  the Service/endpoints).
 
 ## Step 7 — Only now: hypothesise
 

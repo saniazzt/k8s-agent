@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/scripts/block_mutations.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/block_mutations.py\""
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/scripts/block_mutations.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/block_mutations.py\""
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/scripts/block_mutations.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/block_mutations.py\""
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/scripts/redact_secrets.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/redact_secrets.py\""
           }
         ]
       }

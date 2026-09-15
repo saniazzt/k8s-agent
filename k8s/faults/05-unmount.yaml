@@ -1,0 +1,13 @@
+# Companion revert for fault 05: strategic-merge delete directives that remove
+# the injected volume + mount (volumes key on `name`, volumeMounts on `mountPath`).
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          volumeMounts:
+            - mountPath: /var/lib/demo
+              $patch: delete
+      volumes:
+        - name: data
+          $patch: delete

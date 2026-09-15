@@ -11,10 +11,12 @@ set -euo pipefail
 
 K="${KUBECTL:-kubectl}"
 NS="rca-test"
-FAULTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../k8s/faults" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FAULTS_DIR="$ROOT/k8s/faults"
 
-patch_deploy()  { $K patch deploy demo-app -n "$NS" --type merge --patch-file "$FAULTS_DIR/$1"; }
+patch_deploy()  { $K patch deploy demo-app -n "$NS" --type strategic --patch-file "$FAULTS_DIR/$1"; }
 patch_cm()      { $K patch configmap demo-app-config -n "$NS" --type merge --patch-file "$FAULTS_DIR/$1"; }
+patch_cm_revert(){ $K patch configmap demo-app-config -n "$NS" --type merge -p "$1"; }
 patch_svc()     { $K patch svc demo-app -n "$NS" --type merge --patch-file "$FAULTS_DIR/$1"; }
 rollout()       { $K rollout restart deploy/demo-app -n "$NS" >/dev/null; }
 
@@ -50,31 +52,21 @@ apply_fault() {
   echo "applied fault $1"
 }
 
+# Deterministic baseline: delete the workload and recreate it from the pristine
+# base manifest. Per-field "revert" patches proved unreliable (JSON-merge/array
+# semantics), so reverting always rebuilds the demo-app from source of truth.
+restore_baseline() {
+  $K delete networkpolicy demo-app-netpol -n "$NS" --ignore-not-found >/dev/null
+  $K delete pvc demo-app-data -n "$NS" --ignore-not-found >/dev/null
+  $K delete deploy demo-app -n "$NS" --ignore-not-found >/dev/null
+  # ConfigMaps too: `apply` does not prune keys added by an earlier patch.
+  $K delete configmap demo-app-config demo-app-code -n "$NS" --ignore-not-found >/dev/null
+  $K apply -f "$ROOT/k8s/namespace.yaml" >/dev/null
+  $K rollout status deploy/demo-app -n "$NS" --timeout=120s >/dev/null 2>&1 || true
+}
+
 revert_fault() {
-  case "$1" in
-    01) $K patch configmap demo-app-config -n "$NS" --type merge -p '{"data":{"DB_HOST":"demo-db"}}'; rollout ;;
-    02) $K patch deploy demo-app -n "$NS" --type merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"app","resources":{"requests":{"cpu":"20m","memory":"48Mi"},"limits":{"cpu":"200m","memory":"128Mi"}}}]}}}}'; rollout ;;
-    03) $K patch deploy demo-app -n "$NS" --type merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"app","image":"docker.io/library/python:3.11-alpine"}]}}}}'; rollout ;;
-    04) $K patch deploy demo-app -n "$NS" --type merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"app","resources":{"requests":{"cpu":"20m","memory":"48Mi"},"limits":{"cpu":"200m","memory":"128Mi"}}}]}}}}'; rollout ;;
-    05) $K delete pvc demo-app-data -n "$NS" --ignore-not-found
-        $K patch deploy demo-app -n "$NS" --type json -p '[{"op":"remove","path":"/spec/template/spec/volumes/2"}]' 2>/dev/null || true
-        $K get deploy demo-app -n "$NS" -o json | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-spec=d['spec']['template']['spec']
-spec['volumes']=[v for v in spec.get('volumes',[]) if v['name']!='data']
-for c in spec['containers']:
-    c['volumeMounts']=[m for m in c.get('volumeMounts',[]) if m['name']!='data']
-print(json.dumps(d['spec']['template']['spec']))
-" > /tmp/rca-volumes.json
-        $K patch deploy demo-app -n "$NS" --type merge --patch-file /tmp/rca-volumes.json; rollout ;;
-    06) $K patch svc demo-app -n "$NS" --type merge -p '{"spec":{"selector":{"app":"demo-app"}}}' ;;
-    07) $K patch configmap demo-app-config -n "$NS" --type merge -p '{"data":{"LOG_LEVEL":"info","LOG_LEVEL_NEW":null}}'; rollout ;;
-    08) $K delete networkpolicy demo-app-netpol -n "$NS" --ignore-not-found; rollout ;;
-    09) $K patch deploy demo-app -n "$NS" --type merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"app","readinessProbe":{"httpGet":{"path":"/ready","port":8080}}}]}}}}'; rollout ;;
-    10) $K patch deploy demo-app -n "$NS" --type json -p '[{"op":"remove","path":"/spec/template/spec/dnsConfig"}]' 2>/dev/null || true; rollout ;;
-    *) echo "unknown fault: $1"; exit 1 ;;
-  esac
+  restore_baseline
   echo "reverted fault $1"
 }
 
@@ -84,9 +76,7 @@ case "$cmd" in
   apply) apply_fault "${2:?usage: fault.sh apply <id>}" ;;
   revert)
     if [ "${2:-}" = "all" ]; then
-      for id in 01 02 03 04 05 06 07 08 09 10; do revert_fault "$id" || true; done
-      $K delete networkpolicy demo-app-netpol -n "$NS" --ignore-not-found
-      $K delete pvc demo-app-data -n "$NS" --ignore-not-found
+      restore_baseline; echo "baseline restored"
     else
       revert_fault "${2:?usage: fault.sh revert <id|all>}"
     fi ;;

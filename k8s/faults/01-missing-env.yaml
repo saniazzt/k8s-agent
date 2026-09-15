@@ -1,10 +1,5 @@
 # FAULT (easy): required env var disappears (ConfigMap key deleted).
 # Symptom: pods CrashLoopBackOff, log "FATAL missing required env: ['DB_HOST']"
-spec:
-  template:
-    spec:
-      containers:
-        - name: app
-          envFrom:
-            - configMapRef:
-                name: demo-app-config
+# NOTE: patches the ConfigMap (data), not the Deployment.
+data:
+  DB_HOST: null

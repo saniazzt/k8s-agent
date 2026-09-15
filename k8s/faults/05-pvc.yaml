@@ -7,7 +7,7 @@ metadata:
   namespace: rca-test
 spec:
   accessModes: ["ReadWriteOnce"]
-  storageClassName: "fast-ssd-DOES-NOT-EXIST"
+  storageClassName: "fast-ssd-missing"
   resources:
     requests:
       storage: 1Gi

@@ -6,7 +6,9 @@ or emits a PreToolUse "deny" decision. Read-only investigation is never blocked.
 """
 
 import json
+import os
 import re
+import shlex
 import sys
 
 # --- mutation patterns -------------------------------------------------------
@@ -82,6 +84,63 @@ def check_command(command: str) -> None:
             deny(SECRET_READ_DENY_REASON)
 
 
+# --- local file contents -----------------------------------------------------
+# A PostToolUse redaction protects the model, but the raw tool result is still
+# written to the session transcript on disk. So for local reads we PREVENT the
+# read when the file contains a known secret value.
+
+LOCAL_READ_VERBS = re.compile(r"\b(cat|head|tail|less|more|grep|egrep|awk|strings|xxd|od|base64)\b")
+MAX_SCAN_BYTES = 262144
+
+
+def secret_values() -> list:
+    values = []
+    path = os.environ.get(
+        "RCA_SECRET_LIST",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".rca", "secret-values.txt"),
+    )
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    values.append(line)
+    except OSError:
+        pass
+    return values
+
+
+def file_contains_secret(path: str, secrets: list) -> bool:
+    if not path or not os.path.isfile(path):
+        return False
+    try:
+        with open(path, "rb") as fh:
+            blob = fh.read(MAX_SCAN_BYTES)
+    except OSError:
+        return False
+    text = blob.decode("utf-8", "ignore")
+    return any(value and value in text for value in secrets)
+
+
+def check_local_reads(command: str, secrets: list) -> None:
+    if not LOCAL_READ_VERBS.search(command):
+        return
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        tokens = command.split()
+    for token in tokens:
+        candidate = token.strip("'\"")
+        if candidate.startswith("-") or not candidate:
+            continue
+        if file_contains_secret(candidate, secrets):
+            deny(
+                "Blocked by rca-agent: this command would print the contents of a "
+                f"file containing a credential ({candidate!r}). Reading secret "
+                "values is forbidden; the value must never enter the transcript."
+            )
+
+
 MCP_MUTATION_HINTS = re.compile(
     r"(apply|create|delete|patch|update|replace|scale|rollout|exec|drain|cordon|annotate|label|edit)",
     re.I,
@@ -119,10 +178,13 @@ def main() -> None:
     tool_name = payload.get("tool_name", "") or ""
     tool_input = payload.get("tool_input") or {}
 
+    secrets = secret_values()
+
     if tool_name in ("Bash", "bash", "shell"):
         command = str(tool_input.get("command", ""))
         if command:
             check_command(command)
+            check_local_reads(command, secrets)
         sys.exit(0)
 
     if tool_name.startswith("mcp__"):
@@ -131,6 +193,12 @@ def main() -> None:
 
     if tool_name in ("Read", "read"):
         check_file_path(tool_input)
+        file_path = str(tool_input.get("file_path") or "")
+        if file_contains_secret(file_path, secrets):
+            deny(
+                "Blocked by rca-agent: this file contains a credential "
+                f"({file_path!r}). Reading it is forbidden."
+            )
 
     sys.exit(0)
 

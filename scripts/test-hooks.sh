@@ -58,6 +58,17 @@ verdict "kubectl get cm yaml" allow "$(pre '{"hook_event_name":"PreToolUse","too
 verdict "auth can-i"          allow "$(pre '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"kubectl auth can-i get pods --as=system:serviceaccount:rca-test:rca-agent -n rca-test"}}')"
 
 echo
+echo "PreToolUse — local files containing a known secret must not be printed"
+SECVAL="$(head -1 "$SECRET_LIST" 2>/dev/null || true)"
+if [ -n "$SECVAL" ]; then
+  printf '%s' "$SECVAL" > /tmp/rca-secret-probe.txt
+  verdict "cat a file with a secret"  deny "$(pre '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat /tmp/rca-secret-probe.txt"}}')"
+  verdict "Read tool on that file"    deny "$(pre '{"hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"file_path":"/tmp/rca-secret-probe.txt"}}')"
+  verdict "cat a normal file"         allow "$(pre '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat README.md"}}')"
+  rm -f /tmp/rca-secret-probe.txt
+fi
+
+echo
 echo "PreToolUse — MCP tools"
 verdict "mcp pods_delete"     deny  "$(mcp '{"hook_event_name":"PreToolUse","tool_name":"mcp__kubernetes__pods_delete","tool_input":{"name":"demo-app-abc"}}')"
 verdict "mcp pods_get"        allow "$(mcp '{"hook_event_name":"PreToolUse","tool_name":"mcp__kubernetes__pods_get","tool_input":{"name":"demo-app-abc"}}')"
@@ -65,7 +76,7 @@ verdict "mcp secrets_get"     deny  "$(mcp '{"hook_event_name":"PreToolUse","too
 
 echo
 echo "PostToolUse — secret values in output must be redacted"
-SECRET_VALUE="$(head -1 "$SECRET_LIST" 2>/dev/null || echo SUPER_SECRET_DB_PASSWORD_123)"
+SECRET_VALUE="$(head -1 "$SECRET_LIST" 2>/dev/null || echo SUPER_SECRET_DB_PASSWORD_***)"
 OUT="$(printf '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"env"},"tool_response":"PATH=/usr/bin\\nDB_PASSWORD=%s\\nDB_HOST=demo-db"}' "$SECRET_VALUE" | python3 "$REDACT")"
 if printf '%s' "$OUT" | grep -q '\*\*\*REDACTED\*\*\*'; then
   echo "  PASS  known secret value redacted"; pass=$((pass+1))

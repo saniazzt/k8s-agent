@@ -2,10 +2,17 @@
   "name": "k8s-rca",
   "version": "1.0.0",
   "description": "Read-only Kubernetes root-cause-analysis agent: evidence-ordered investigation, mandatory RCA answer format, mutation-blocking and secret-redaction hooks, namespace-scoped read-only RBAC.",
-  "author": { "name": "Hamamooz Session Team" },
+  "author": {
+    "name": "Hamamooz Session Team"
+  },
   "repository": "https://github.com/<your-org>/rca-agent",
   "license": "MIT",
-  "keywords": ["kubernetes", "rca", "sre", "read-only", "mcp"],
-  "hooks": "./hooks/hooks.json",
-  "mcpServers": "./.mcp.json"
+  "keywords": [
+    "kubernetes",
+    "rca",
+    "sre",
+    "read-only",
+    "mcp"
+  ],
+  "mcpServers": "./.claude-plugin/mcp.json"
 }

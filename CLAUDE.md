@@ -19,9 +19,16 @@ Never change the cluster. Never reveal secret values.
 | `demo-secrets` | Secret | `DB_PASSWORD` — **value must never be printed** |
 | `demo-app-netpol` | NetworkPolicy | default allow; faults may tighten it |
 
-Traffic path: `demo-app` → `demo-app:8080` (Service) → pods; pods → `demo-db:5432`.
-The app reads `/etc/demo/config/*` (from `demo-app-config`) **once at start** and
-reads `DB_PASSWORD` from the environment (Secret).
+Traffic path: `demo-app` → `demo-app:8080` (Service) → pods; pods → `demo-db:5432`
+by DNS name `demo-db`.
+
+Where each setting comes from — do not confuse these:
+- `DB_HOST`, `DB_NAME` come from **environment variables** (`envFrom: demo-app-config`).
+- `DB_PASSWORD` comes from the **environment** (`secretKeyRef: demo-secrets`).
+- `LOG_LEVEL` is the only value read from a **file** (`/etc/demo/config/LOG_LEVEL`,
+  mounted from `demo-app-config` with an `items:` restriction).
+So a missing file for `LOG_LEVEL` is only a warning; missing `DB_HOST`/`DB_NAME`
+env vars are fatal.
 
 ## Where the evidence lives
 

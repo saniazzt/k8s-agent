@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "kubernetes": {
-      "command": "npx",
-      "args": ["-y", "mcp-server-kubernetes"],
+      "command": "mcp-server-kubernetes",
+      "args": [],
       "env": {
         "KUBECONFIG": "${CLAUDE_PLUGIN_ROOT}/.rca/kubeconfig-rca-agent"
       }
@@ -23,14 +23,6 @@
         "AM_URL": "http://127.0.0.1:9093",
         "AM_PATH": "",
         "AM_HOST_HEADER": ""
-      }
-    },
-    "grafana": {
-      "command": "mcp-grafana",
-      "args": [],
-      "env": {
-        "GRAFANA_URL": "http://127.0.0.1:3000",
-        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
       }
     }
   }
